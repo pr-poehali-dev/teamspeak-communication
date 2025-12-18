@@ -5,6 +5,10 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Slider } from '@/components/ui/slider';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type NavItem = 'servers' | 'friends' | 'chats' | 'profile' | 'shop' | 'settings';
 
@@ -67,11 +71,66 @@ const mockServers: Server[] = [
 
 const Index = () => {
   const [activeNav, setActiveNav] = useState<NavItem>('servers');
+  const [servers, setServers] = useState<Server[]>(mockServers);
   const [selectedServer, setSelectedServer] = useState<Server>(mockServers[0]);
   const [micVolume, setMicVolume] = useState([75]);
   const [soundVolume, setSoundVolume] = useState([80]);
   const [isMuted, setIsMuted] = useState(false);
   const [isDeafened, setIsDeafened] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  
+  const [newServerName, setNewServerName] = useState('');
+  const [newServerIcon, setNewServerIcon] = useState('🎮');
+  const [newChannels, setNewChannels] = useState<Array<{name: string, type: 'voice' | 'text'}>>([{name: 'Общий', type: 'voice'}]);
+
+  const iconOptions = ['🎮', '⚔️', '💥', '🎯', '🏆', '⚡', '🔥', '💎', '🚀', '🎪'];
+
+  const addChannel = () => {
+    setNewChannels([...newChannels, {name: '', type: 'voice'}]);
+  };
+
+  const updateChannel = (index: number, field: 'name' | 'type', value: string) => {
+    const updated = [...newChannels];
+    if (field === 'type' && (value === 'voice' || value === 'text')) {
+      updated[index][field] = value;
+    } else if (field === 'name') {
+      updated[index][field] = value;
+    }
+    setNewChannels(updated);
+  };
+
+  const removeChannel = (index: number) => {
+    setNewChannels(newChannels.filter((_, i) => i !== index));
+  };
+
+  const createServer = () => {
+    if (!newServerName.trim()) return;
+    
+    const newId = Math.max(...servers.map(s => s.id)) + 1;
+    const channelStartId = Math.max(...servers.flatMap(s => s.channels.map(c => c.id))) + 1;
+    
+    const newServer: Server = {
+      id: newId,
+      name: newServerName,
+      icon: newServerIcon,
+      online: Math.floor(Math.random() * 500) + 100,
+      total: Math.floor(Math.random() * 1000) + 500,
+      channels: newChannels.map((ch, idx) => ({
+        id: channelStartId + idx,
+        name: ch.name || `Канал ${idx + 1}`,
+        type: ch.type,
+        users: ch.type === 'voice' ? Math.floor(Math.random() * 20) : undefined,
+        quality: ch.type === 'voice' ? 'excellent' as const : undefined,
+      })),
+    };
+    
+    setServers([...servers, newServer]);
+    setSelectedServer(newServer);
+    setIsCreateDialogOpen(false);
+    setNewServerName('');
+    setNewServerIcon('🎮');
+    setNewChannels([{name: 'Общий', type: 'voice'}]);
+  };
 
   const getQualityColor = (quality?: 'excellent' | 'good' | 'fair') => {
     switch (quality) {
@@ -107,7 +166,7 @@ const Index = () => {
         </div>
         
         <div className="w-full flex flex-col items-center space-y-3">
-          {mockServers.map((server) => (
+          {servers.map((server) => (
             <button
               key={server.id}
               onClick={() => setSelectedServer(server)}
@@ -127,9 +186,147 @@ const Index = () => {
 
         <div className="flex-1" />
 
-        <button className="w-12 h-12 bg-sidebar-accent rounded-2xl flex items-center justify-center hover:bg-primary hover:rounded-xl transition-all group">
-          <Icon name="Plus" size={24} className="text-muted-foreground group-hover:text-primary-foreground" />
-        </button>
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <button className="w-12 h-12 bg-sidebar-accent rounded-2xl flex items-center justify-center hover:bg-primary hover:rounded-xl transition-all group">
+              <Icon name="Plus" size={24} className="text-muted-foreground group-hover:text-primary-foreground" />
+            </button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-2xl flex items-center gap-2">
+                <Icon name="Plus" size={24} className="text-primary" />
+                Создать сервер
+              </DialogTitle>
+              <DialogDescription>
+                Настрой свой игровой сервер с голосовыми и текстовыми каналами
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-6 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="server-name" className="flex items-center gap-2">
+                  <Icon name="Hash" size={16} />
+                  Название сервера
+                </Label>
+                <Input
+                  id="server-name"
+                  placeholder="Мой игровой сервер"
+                  value={newServerName}
+                  onChange={(e) => setNewServerName(e.target.value)}
+                  className="text-lg"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Icon name="Smile" size={16} />
+                  Иконка сервера
+                </Label>
+                <div className="grid grid-cols-5 gap-2">
+                  {iconOptions.map((icon) => (
+                    <button
+                      key={icon}
+                      onClick={() => setNewServerIcon(icon)}
+                      className={`w-full aspect-square text-3xl rounded-lg border-2 transition-all hover:scale-110 ${
+                        newServerIcon === icon
+                          ? 'border-primary bg-primary/20'
+                          : 'border-sidebar-border bg-sidebar-accent/50 hover:border-primary/50'
+                      }`}
+                    >
+                      {icon}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2">
+                    <Icon name="Radio" size={16} />
+                    Каналы сервера
+                  </Label>
+                  <Button
+                    onClick={addChannel}
+                    size="sm"
+                    variant="outline"
+                    className="h-8"
+                  >
+                    <Icon name="Plus" size={14} className="mr-1" />
+                    Добавить
+                  </Button>
+                </div>
+
+                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+                  {newChannels.map((channel, index) => (
+                    <Card key={index} className="p-3 border-sidebar-border">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 space-y-2">
+                          <Input
+                            placeholder="Название канала"
+                            value={channel.name}
+                            onChange={(e) => updateChannel(index, 'name', e.target.value)}
+                            className="h-9"
+                          />
+                          <Select
+                            value={channel.type}
+                            onValueChange={(value) => updateChannel(index, 'type', value)}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="voice">
+                                <div className="flex items-center gap-2">
+                                  <Icon name="Volume2" size={14} />
+                                  Голосовой
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="text">
+                                <div className="flex items-center gap-2">
+                                  <Icon name="Hash" size={14} />
+                                  Текстовый
+                                </div>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {newChannels.length > 1 && (
+                          <Button
+                            onClick={() => removeChannel(index)}
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <Icon name="Trash2" size={16} />
+                          </Button>
+                        )}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-sidebar-border">
+                <Button
+                  onClick={() => setIsCreateDialogOpen(false)}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Отмена
+                </Button>
+                <Button
+                  onClick={createServer}
+                  disabled={!newServerName.trim()}
+                  className="flex-1 bg-primary hover:bg-primary/90"
+                >
+                  <Icon name="Check" size={18} className="mr-2" />
+                  Создать сервер
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </aside>
 
       <div className="w-64 bg-sidebar/50 flex flex-col border-r border-sidebar-border">
